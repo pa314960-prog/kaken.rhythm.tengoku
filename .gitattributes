@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# start.bat は Shift_JIS + CRLF のまま保つ（Windowsで文字化け・実行エラーを防ぐ）
+*.bat -text
+*.sh text eol=lf
