@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12172b">
+<title>リズミカ！ - Rhythmica</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#127925;</text></svg>">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ タイトル ============ -->
+  <section class="screen is-active" id="screen-title">
+    <div class="title-art" aria-hidden="true">
+      <span class="tnote n1">♪</span><span class="tnote n2">♫</span><span class="tnote n3">♩</span>
+    </div>
+    <h1 class="game-title">リズミカ！</h1>
+    <p class="game-sub">RHYTHMICA &mdash; ノリで押す、それだけのゲーム</p>
+    <div class="menu">
+      <button class="btn btn-primary" data-go="select">はじめる</button>
+      <button class="btn" data-go="calib">タイミング調整</button>
+      <button class="btn" data-go="help">あそびかた</button>
+      <button class="btn btn-ghost" data-go="settings">設定</button>
+    </div>
+    <p class="hint">画面をクリック / スペースキーで進めます</p>
+  </section>
+
+  <!-- ============ ステージ選択 ============ -->
+  <section class="screen" id="screen-select">
+    <h2 class="head">ステージをえらぶ</h2>
+    <div class="stage-list" id="stageList"></div>
+    <div class="menu row">
+      <button class="btn btn-ghost" data-go="title">もどる</button>
+    </div>
+  </section>
+
+  <!-- ============ あそびかた ============ -->
+  <section class="screen" id="screen-help">
+    <h2 class="head">あそびかた</h2>
+    <div class="panel">
+      <h3>1. ボタンは1つだけ</h3>
+      <p><kbd>Space</kbd> / <kbd>Enter</kbd> / <kbd>Z</kbd>、または画面クリック・タップ。どれを使っても同じです。</p>
+      <h3>2. マーカーが重なった瞬間に押す</h3>
+      <p>右から流れてくる音符が、左の「◎」に重なった瞬間がジャストです。<strong>目で追うより、音のノリに合わせる</strong>ほうが当たります。</p>
+      <h3>3. ながおしノート</h3>
+      <p>横に伸びた帯は<strong>押しっぱなし</strong>。帯の終わりでパッと離します。押す・離すの2回とも判定されます。</p>
+      <h3>4. 判定</h3>
+      <p><span class="j just">ジャスト</span> ＝ ドンピシャ／<span class="j nice">ナイス</span> ＝ 少しズレ／<span class="j miss">ミス</span> ＝ 大きくズレ・押し忘れ</p>
+      <h3>5. 音がズレて感じたら</h3>
+      <p>タイトルの「タイミング調整」でPCごとの音の遅れを測って補正できます。イヤホン・スピーカーを変えたら測り直してください。</p>
+    </div>
+    <div class="menu row"><button class="btn btn-ghost" data-go="title">もどる</button></div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section class="screen" id="screen-settings">
+    <h2 class="head">設定</h2>
+    <div class="panel">
+      <label class="field">
+        <span>ぜんたいの音量 <b id="volVal">80</b></span>
+        <input type="range" id="volRange" min="0" max="100" step="1" value="80">
+      </label>
+      <label class="field">
+        <span>判定オフセット <b id="offVal">0</b> ms</span>
+        <input type="range" id="offRange" min="-200" max="200" step="1" value="0">
+      </label>
+      <p class="note">オフセットを<strong>プラス</strong>にすると、少し<strong>遅め</strong>に押してもジャストになります。自動で測るなら「タイミング調整」へ。</p>
+      <label class="field checkbox">
+        <input type="checkbox" id="guideChk">
+        <span>ガイド音（メトロノーム）を鳴らす</span>
+      </label>
+      <div class="menu row">
+        <button class="btn btn-ghost" id="resetData">記録をぜんぶ消す</button>
+      </div>
+    </div>
+    <div class="menu row"><button class="btn btn-ghost" data-go="title">もどる</button></div>
+  </section>
+
+  <!-- ============ タイミング調整 ============ -->
+  <section class="screen" id="screen-calib">
+    <h2 class="head">タイミング調整</h2>
+    <div class="panel">
+      <p>「カッ、カッ」と鳴る音に合わせて、<strong>8回以上</strong>ボタンを押してください。<br>
+         押した平均のズレを測って、自動で補正値を決めます。</p>
+      <div class="calib-box">
+        <div class="calib-dot" id="calibDot"></div>
+        <div class="calib-info">
+          <div><b id="calibCount">0</b> / 8 回</div>
+          <div id="calibResult" class="calib-result">まだ測っていません</div>
+        </div>
+      </div>
+      <div class="menu row">
+        <button class="btn btn-primary" id="calibStart">計測スタート</button>
+        <button class="btn" id="calibApply" disabled>この値を使う</button>
+        <button class="btn btn-ghost" id="calibZero">0にもどす</button>
+      </div>
+    </div>
+    <div class="menu row"><button class="btn btn-ghost" data-go="title">もどる</button></div>
+  </section>
+
+  <!-- ============ プレイ ============ -->
+  <section class="screen screen-play" id="screen-play">
+    <div class="stage-wrap">
+      <canvas id="gameCanvas" width="960" height="540" aria-label="ゲーム画面"></canvas>
+      <button class="quit-btn" id="quitBtn" title="やめる (Esc)">×</button>
+      <div class="tap-layer" id="tapLayer" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ============ リザルト ============ -->
+  <section class="screen" id="screen-result">
+    <h2 class="head" id="resultStage">ステージ</h2>
+    <div class="result-card">
+      <div class="rank" id="resultRank">ハイレベル</div>
+      <div class="score"><b id="resultScore">0</b><span>点</span></div>
+      <div class="breakdown">
+        <div><span class="j just">ジャスト</span><b id="cJust">0</b></div>
+        <div><span class="j nice">ナイス</span><b id="cNice">0</b></div>
+        <div><span class="j miss">ミス</span><b id="cMiss">0</b></div>
+        <div><span class="j combo">最大コンボ</span><b id="cCombo">0</b></div>
+      </div>
+      <div class="best" id="resultBest"></div>
+      <p class="comment" id="resultComment"></p>
+    </div>
+    <div class="menu row">
+      <button class="btn btn-primary" id="retryBtn">もういちど</button>
+      <button class="btn" data-go="select">ステージ選択</button>
+      <button class="btn btn-ghost" data-go="title">タイトル</button>
+    </div>
+  </section>
+
+  <!-- 音声を有効化するための最初のひと押し -->
+  <div class="gate" id="gate">
+    <div class="gate-inner">
+      <div class="gate-note">♪</div>
+      <p class="gate-title">画面をクリックしてスタート</p>
+      <p class="gate-sub">ブラウザの仕様で、最初のクリックが無いと音が出せません</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- 読み込み順が重要です（依存の浅いものから） -->
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/stages.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
