@@ -3,6 +3,8 @@
 リズム天国ライクな、**ブラウザだけで動くリズムゲーム**です。
 インストール不要・ビルド不要・通信不要。フォルダをコピーするだけで、どのパソコンでも動きます。
 
+**公開URL: https://pa314960-prog.github.io/kaken.rhythm.tengoku/**
+
 ![stages](https://img.shields.io/badge/stages-3-ffd23f) ![deps](https://img.shields.io/badge/dependencies-0-5be584) ![build](https://img.shields.io/badge/build-none-4fd6e8)
 
 ---
