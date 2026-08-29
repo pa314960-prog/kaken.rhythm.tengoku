@@ -11,11 +11,16 @@
   var available = true;
 
   var data = {
-    volume: 0.8,      // 0..1
-    offset: 0,        // 判定オフセット(ms) プラス = 早押しでジャスト
-    guide: false,     // ガイド音
-    scores: {}        // { stageId: {score, rank, combo, ts} }
+    volume: 0.8,
+    // 判定オフセット(ms)。機材の遅れが入力方法ごとに違うので別々に持つ
+    offsets: { button: 0, mic: 0, camera: 0 },
+    inputMode: 'button',   // button | mic | camera
+    sensitivity: 5,        // マイク・カメラの感度 1(にぶい)..10(びんかん)
+    guide: false,          // ガイド音
+    scores: {}             // { stageId: {score, rank, combo, ts} }
   };
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
   function load() {
     try {
@@ -24,7 +29,17 @@
         var o = JSON.parse(raw);
         if (o && typeof o === 'object') {
           if (typeof o.volume === 'number') data.volume = clamp(o.volume, 0, 1);
-          if (typeof o.offset === 'number') data.offset = clamp(o.offset, -300, 300);
+          if (o.offsets && typeof o.offsets === 'object') {
+            ['button', 'mic', 'camera'].forEach(function (k) {
+              if (typeof o.offsets[k] === 'number') data.offsets[k] = clamp(o.offsets[k], -300, 300);
+            });
+          } else if (typeof o.offset === 'number') {
+            data.offsets.button = clamp(o.offset, -300, 300); // 旧形式からの引き継ぎ
+          }
+          if (o.inputMode === 'button' || o.inputMode === 'mic' || o.inputMode === 'camera') {
+            data.inputMode = o.inputMode;
+          }
+          if (typeof o.sensitivity === 'number') data.sensitivity = clamp(Math.round(o.sensitivity), 1, 10);
           if (typeof o.guide === 'boolean') data.guide = o.guide;
           if (o.scores && typeof o.scores === 'object') data.scores = o.scores;
         }
@@ -42,8 +57,6 @@
     }
   }
 
-  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
-
   RT.Store = {
     data: data,
     load: load,
@@ -52,6 +65,13 @@
 
     get: function (k) { return data[k]; },
     set: function (k, v) { data[k] = v; save(); },
+
+    /** いま選ばれている入力モードの判定オフセット(ms) */
+    offset: function () { return data.offsets[data.inputMode] || 0; },
+    setOffset: function (ms) {
+      data.offsets[data.inputMode] = clamp(Math.round(ms), -300, 300);
+      save();
+    },
 
     /** ハイスコアなら更新して true を返す */
     submitScore: function (stageId, rec) {
@@ -67,7 +87,7 @@
 
     clearAll: function () {
       data.scores = {};
-      data.offset = 0;
+      data.offsets = { button: 0, mic: 0, camera: 0 };
       save();
     }
   };

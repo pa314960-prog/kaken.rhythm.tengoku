@@ -1,5 +1,5 @@
 /* ===========================================================
-   ui.js — 画面遷移・ステージ一覧・タイミング調整・リザルト
+   ui.js — 画面遷移・ステージ一覧・設定・タイミング調整・リザルト
    =========================================================== */
 (function (global) {
   'use strict';
@@ -8,6 +8,8 @@
 
   var current = 'title';
   var lastStage = null;
+
+  var MODE_LABEL = { button: 'ボタン', mic: 'マイク', camera: 'カメラ' };
 
   function $(id) { return doc.getElementById(id); }
   function $$(sel) { return Array.prototype.slice.call(doc.querySelectorAll(sel)); }
@@ -27,11 +29,54 @@
     if (el) el.classList.add('is-active');
     current = name;
     if (name === 'select') buildStageList();
+    if (name === 'settings') refreshSettingsUI(true);
+    if (name === 'title') RT.Sensor.stop(); // タイトルに戻ったらカメラ・マイクを離す
     // 最初のフォーカスをボタンに置く（キーボードだけでも遊べるように）
     if (name !== 'play') {
       var b = el && el.querySelector('.btn, .stage-card');
       if (b) { try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); } }
     }
+  }
+
+  /* ---------- センサー補助 ---------- */
+  function sensorErrorText(err) {
+    var n = err && err.name;
+    if (n === 'NotAllowedError' || n === 'PermissionDeniedError') {
+      return '使用が許可されませんでした。アドレス欄のカメラ/マイクのアイコンから許可できます';
+    }
+    if (n === 'NotFoundError' || n === 'DevicesNotFoundError') {
+      return 'マイク / カメラが見つかりませんでした';
+    }
+    if (n === 'NotReadableError') return '他のアプリが使用中のようです';
+    if (n === 'NotSupportedError') {
+      return 'この開き方では使えません（別PCから http://IPアドレス で開いている場合は、そのPC上で直接開いてください）';
+    }
+    return '起動できませんでした（' + (n || err) + '）';
+  }
+
+  function setSensorStatus(t) {
+    var el = $('sensorStatus');
+    if (el) el.textContent = t || '';
+  }
+
+  /** 選択中モードのセンサーを起動。失敗したらボタン操作に戻して続行する */
+  function ensureSensor(showStatus) {
+    var m = RT.Store.get('inputMode') || 'button';
+    if (m === 'button') { RT.Sensor.stop(); return Promise.resolve(true); }
+    return RT.Sensor.start(m).then(function () {
+      if (showStatus) {
+        setSensorStatus(m === 'mic'
+          ? '🎤 マイクを聞いています。手拍子でバーが伸びればOK'
+          : '📷 カメラを見ています。手を振ってバーが伸びればOK');
+      }
+      return true;
+    }, function (err) {
+      RT.Store.set('inputMode', 'button');
+      RT.Sensor.stop();
+      setSensorStatus('⚠ ' + sensorErrorText(err) + '。ボタン操作に戻しました');
+      refreshSettingsUI(false);
+      return false;
+    });
   }
 
   /* ---------- ステージ一覧 ---------- */
@@ -73,11 +118,13 @@
   /* ---------- プレイ ---------- */
   function playStage(stage) {
     lastStage = stage;
-    RT.Audio.unlock().then(function () {
-      show('play');
-      RT.Audio.S.ui('start');
-      RT.Game.start(stage, showResult);
-    });
+    RT.Audio.unlock()
+      .then(function () { return ensureSensor(false); })
+      .then(function () {
+        show('play');
+        RT.Audio.S.ui('start');
+        RT.Game.start(stage, showResult);
+      });
   }
 
   /* ---------- リザルト ---------- */
@@ -107,64 +154,113 @@
   }
 
   /* ---------- 設定 ---------- */
+  function refreshSettingsUI(tryStartSensor) {
+    var m = RT.Store.get('inputMode') || 'button';
+    $$('input[name=inputMode]').forEach(function (r) {
+      r.checked = (r.value === m);
+      r.parentNode.classList.toggle('is-on', r.checked);
+    });
+    $('sensRow').hidden = (m === 'button');
+    $('sensRange').value = RT.Store.get('sensitivity');
+    $('sensVal').textContent = RT.Store.get('sensitivity');
+    $('offMode').textContent = MODE_LABEL[m];
+    $('offRange').value = RT.Store.offset();
+    $('offVal').textContent = RT.Store.offset();
+    if (m === 'button') setSensorStatus('');
+    if (tryStartSensor && m !== 'button') {
+      setSensorStatus('起動しています…');
+      ensureSensor(true);
+    }
+  }
+
   function bindSettings() {
     var vol = $('volRange'), volVal = $('volVal');
-    var off = $('offRange'), offVal = $('offVal');
-    var guide = $('guideChk');
-
     vol.value = Math.round(RT.Store.get('volume') * 100);
     volVal.textContent = vol.value;
-    off.value = RT.Store.get('offset');
-    offVal.textContent = off.value;
-    guide.checked = !!RT.Store.get('guide');
-
     vol.addEventListener('input', function () {
       var v = Number(vol.value) / 100;
       volVal.textContent = vol.value;
       RT.Store.set('volume', v);
       RT.Audio.setVolume(v);
     });
+
+    // 入力モード
+    $$('input[name=inputMode]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        if (!r.checked) return;
+        RT.Store.set('inputMode', r.value);
+        refreshSettingsUI(false);
+        if (r.value === 'button') {
+          RT.Sensor.stop();
+          setSensorStatus('');
+        } else {
+          setSensorStatus('起動しています…');
+          ensureSensor(true);
+        }
+        RT.Audio.S.ui('ok');
+      });
+    });
+
+    // 感度
+    var sens = $('sensRange'), sensVal = $('sensVal');
+    sens.addEventListener('input', function () {
+      sensVal.textContent = sens.value;
+      RT.Store.set('sensitivity', Number(sens.value));
+    });
+
+    // レベルメーター（バーが右端に届いた瞬間＝1押し）
+    var fill = $('levelFill');
+    RT.Sensor.setLevelCallback(function (lv) {
+      if (current !== 'settings' || !fill) return;
+      fill.style.width = Math.round(Math.min(1, lv) * 100) + '%';
+      fill.classList.toggle('hot', lv >= 1);
+    });
+
+    // 判定オフセット（入力モードごとに別保存）
+    var off = $('offRange'), offVal = $('offVal');
     off.addEventListener('input', function () {
       offVal.textContent = off.value;
-      RT.Store.set('offset', Number(off.value));
+      RT.Store.setOffset(Number(off.value));
     });
+
+    var guide = $('guideChk');
+    guide.checked = !!RT.Store.get('guide');
     guide.addEventListener('change', function () {
       RT.Store.set('guide', guide.checked);
     });
+
     $('resetData').addEventListener('click', function () {
       if (global.confirm('ハイスコアと補正値をすべて消します。よろしいですか？')) {
         RT.Store.clearAll();
-        off.value = 0; offVal.textContent = '0';
+        refreshSettingsUI(false);
         RT.Audio.S.ui('back');
       }
     });
-  }
-
-  function syncSettingsUI() {
-    $('offRange').value = RT.Store.get('offset');
-    $('offVal').textContent = RT.Store.get('offset');
   }
 
   /* ---------- タイミング調整 ---------- */
   var calib = { running: false, samples: [], raf: null, result: null };
 
   function startCalib() {
-    RT.Audio.unlock().then(function () {
-      calib.samples = [];
-      calib.result = null;
-      calib.running = true;
-      $('calibCount').textContent = '0';
-      $('calibResult').textContent = '音に合わせて押してください…';
-      $('calibApply').disabled = true;
+    RT.Audio.unlock()
+      .then(function () { return ensureSensor(false); })
+      .then(function () {
+        calib.samples = [];
+        calib.result = null;
+        calib.running = true;
+        $('calibCount').textContent = '0';
+        $('calibResult').textContent = '音に合わせて入力してください…（いまのモード: ' +
+          MODE_LABEL[RT.Store.get('inputMode') || 'button'] + '）';
+        $('calibApply').disabled = true;
 
-      RT.Audio.startSong(100, function (step, t) {
-        if (step % 4 === 0) RT.Audio.S.click(t, (step / 4) % 4 === 0);
-      }, [], 0.5);
+        RT.Audio.startSong(100, function (step, t) {
+          if (step % 4 === 0) RT.Audio.S.click(t, (step / 4) % 4 === 0);
+        }, [], 0.5);
 
-      RT.Input.bind(onCalibPress, null);
-      RT.Input.enable(true);
-      loopCalib();
-    });
+        RT.Input.bind(onCalibPress, null);
+        RT.Input.enable(true);
+        loopCalib();
+      });
   }
 
   function onCalibPress(rawTime) {
@@ -217,16 +313,16 @@
   function bindCalib() {
     $('calibStart').addEventListener('click', startCalib);
     $('calibZero').addEventListener('click', function () {
-      RT.Store.set('offset', 0);
-      syncSettingsUI();
-      $('calibResult').textContent = '補正値を 0 ms にもどしました';
+      RT.Store.setOffset(0);
+      $('calibResult').textContent = MODE_LABEL[RT.Store.get('inputMode') || 'button'] +
+        '用の補正値を 0 ms にもどしました';
       RT.Audio.S.ui('back');
     });
     $('calibApply').addEventListener('click', function () {
       if (calib.result == null) return;
-      RT.Store.set('offset', calib.result);
-      syncSettingsUI();
-      $('calibResult').textContent = '補正値 ' + calib.result + ' ms を保存しました！';
+      RT.Store.setOffset(calib.result);
+      $('calibResult').textContent = '補正値 ' + calib.result + ' ms を保存しました！（' +
+        MODE_LABEL[RT.Store.get('inputMode') || 'button'] + '用）';
       $('calibApply').disabled = true;
       RT.Audio.S.ui('ok');
     });
@@ -262,6 +358,7 @@
       bindSettings();
       bindCalib();
       buildStageList();
+      refreshSettingsUI(false);
       show('title');
     },
     current: function () { return current; }

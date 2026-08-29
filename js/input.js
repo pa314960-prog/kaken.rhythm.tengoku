@@ -100,6 +100,13 @@
 
   RT.Input = {
     attachSurface: attachSurface,
+    /** いま選ばれている入力モード（button | mic | camera） */
+    mode: function () { return RT.Store.get('inputMode') || 'button'; },
+    /** マイク・カメラ(sensor.js)が検出した「押した」を注入する。
+        ボタンと同じハンドラを通るので、判定・調整も同じ経路になる */
+    injectPress: function (t) {
+      if (enabled && handlers.press) handlers.press(t, 'sensor');
+    },
     /** 入力の受け取り先を差し替える（プレイ中・調整中で使い分ける） */
     bind: function (onPress, onRelease) {
       handlers.press = onPress || null;
