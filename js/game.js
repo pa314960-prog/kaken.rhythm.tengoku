@@ -46,7 +46,7 @@
   }
 
   /* ---------- 補正 ---------- */
-  function offsetSec() { return (RT.Store.get('offset') || 0) / 1000; }
+  function offsetSec() { return (RT.Store.offset() || 0) / 1000; }
   function adjust(rawTime) { return rawTime - RT.Audio.outputLatency() - offsetSec(); }
   function adjustedNow() { return adjust(RT.Audio.now()); }
 
@@ -55,7 +55,22 @@
     var prep = RT.Stages.prepare(stage);
     onEnd = endCallback;
 
-    var notes = prep.notes.map(function (n) {
+    // マイク・カメラは「離す」が検出できないので、ながおしノートは
+    // 「始まりと終わりの2回叩き」＝タップ2つに変換する（配点は同じ2点）
+    var srcNotes = prep.notes;
+    if (RT.Input.mode() !== 'button') {
+      srcNotes = [];
+      prep.notes.forEach(function (n) {
+        if (n.t === 'hold') {
+          srcNotes.push({ b: n.b, t: 'tap' });
+          srcNotes.push({ b: n.b + n.len, t: 'tap' });
+        } else {
+          srcNotes.push(n);
+        }
+      });
+      srcNotes.sort(function (a, b) { return a.b - b.b; });
+    }
+    var notes = srcNotes.map(function (n) {
       return {
         b: n.b, t: n.t, len: n.len || 0,
         pressDone: false, pressResult: null,
@@ -346,6 +361,15 @@
     c.fillStyle = 'rgba(255,255,255,.5)';
     c.font = 'bold 15px sans-serif';
     c.fillText(st.stage.name, 26, 36);
+
+    // 入力モードの表示
+    var im = RT.Input.mode();
+    if (im !== 'button') {
+      c.textAlign = 'center';
+      c.fillStyle = 'rgba(255,255,255,.5)';
+      c.font = 'bold 13px sans-serif';
+      c.fillText(im === 'mic' ? '🎤 マイクモード' : '📷 カメラモード', W / 2, 36);
+    }
 
     // スコア
     c.textAlign = 'right';

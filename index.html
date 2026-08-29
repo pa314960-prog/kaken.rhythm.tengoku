@@ -51,6 +51,8 @@
       <p><span class="j just">ジャスト</span> ＝ ドンピシャ／<span class="j nice">ナイス</span> ＝ 少しズレ／<span class="j miss">ミス</span> ＝ 大きくズレ・押し忘れ</p>
       <h3>5. 音がズレて感じたら</h3>
       <p>タイトルの「タイミング調整」でPCごとの音の遅れを測って補正できます。イヤホン・スピーカーを変えたら測り直してください。</p>
+      <h3>6. マイク・カメラでも遊べる</h3>
+      <p>「設定」の<strong>入力モード</strong>で、<strong>🎤 手拍子</strong>や<strong>📷 手を振る</strong>操作に切り替えられます。切り替えたら「タイミング調整」で測り直すのがおすすめ。マイクのときはスピーカーの音に反応しやすいので<strong>イヤホン推奨</strong>。ながおしノートは「始まりと終わりの2回叩き」に変わります。映像・音声はこのパソコンの中だけで処理し、保存も送信もしません。</p>
     </div>
     <div class="menu row"><button class="btn btn-ghost" data-go="title">もどる</button></div>
   </section>
@@ -63,11 +65,26 @@
         <span>ぜんたいの音量 <b id="volVal">80</b></span>
         <input type="range" id="volRange" min="0" max="100" step="1" value="80">
       </label>
+      <div class="field">
+        <span>入力モード（どうやって「押す」か）</span>
+        <div class="mode-row">
+          <label class="mode-opt"><input type="radio" name="inputMode" value="button" checked><span>🖱️ ボタン</span></label>
+          <label class="mode-opt"><input type="radio" name="inputMode" value="mic"><span>🎤 マイク<small>手拍子</small></span></label>
+          <label class="mode-opt"><input type="radio" name="inputMode" value="camera"><span>📷 カメラ<small>手を振る</small></span></label>
+        </div>
+        <p class="note" id="sensorStatus"></p>
+      </div>
+      <div class="field" id="sensRow" hidden>
+        <span>センサーの感度 <b id="sensVal">5</b></span>
+        <input type="range" id="sensRange" min="1" max="10" step="1" value="5">
+        <div class="level-meter"><div class="level-fill" id="levelFill"></div></div>
+        <p class="note">手拍子（または手を振る）とバーが伸びます。<strong>右端に届いた瞬間が「1押し」</strong>です。反応しすぎるなら感度を下げてください。</p>
+      </div>
       <label class="field">
-        <span>判定オフセット <b id="offVal">0</b> ms</span>
+        <span>判定オフセット（<b id="offMode">ボタン</b>用） <b id="offVal">0</b> ms</span>
         <input type="range" id="offRange" min="-200" max="200" step="1" value="0">
       </label>
-      <p class="note">オフセットを<strong>プラス</strong>にすると、少し<strong>遅め</strong>に押してもジャストになります。自動で測るなら「タイミング調整」へ。</p>
+      <p class="note">オフセットを<strong>プラス</strong>にすると、少し<strong>遅め</strong>に押してもジャストになります。入力モードごとに別々に保存されます。自動で測るなら「タイミング調整」へ。</p>
       <label class="field checkbox">
         <input type="checkbox" id="guideChk">
         <span>ガイド音（メトロノーム）を鳴らす</span>
@@ -83,8 +100,9 @@
   <section class="screen" id="screen-calib">
     <h2 class="head">タイミング調整</h2>
     <div class="panel">
-      <p>「カッ、カッ」と鳴る音に合わせて、<strong>8回以上</strong>ボタンを押してください。<br>
-         押した平均のズレを測って、自動で補正値を決めます。</p>
+      <p>「カッ、カッ」と鳴る音に合わせて、<strong>8回以上</strong>入力してください。<br>
+         いま選んでいる入力モード（ボタン / 手拍子 / 手を振る）のズレを測って、自動で補正値を決めます。<br>
+         マイク・カメラに切り替えたときは、ここで測り直すのがおすすめです。</p>
       <div class="calib-box">
         <div class="calib-dot" id="calibDot"></div>
         <div class="calib-info">
@@ -147,6 +165,7 @@
 <script src="js/storage.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/input.js"></script>
+<script src="js/sensor.js"></script>
 <script src="js/stages.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
